@@ -1,0 +1,101 @@
+// === Task 3: Backend Integration & API Development (Single Code Block) ===
+
+/* Post.kt */
+package com.example.task3app.model
+data class Post(
+    val userId: Int,
+    val id: Int,
+    val title: String,
+    val body: String
+)
+
+/* ApiService.kt */
+package com.example.task3app.api
+import com.example.task3app.model.Post
+import retrofit2.Call
+import retrofit2.http.GET
+
+interface ApiService {
+    @GET("posts")
+    fun getPosts(): Call<List<Post>>
+}
+
+/* RetrofitClient.kt */
+package com.example.task3app.api
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+
+object RetrofitClient {
+    private const val BASE_URL = "https://jsonplaceholder.typicode.com/"
+    val instance: ApiService by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(ApiService::class.java)
+    }
+}
+
+/* PostAdapter.kt */
+package com.example.task3app.adapter
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import androidx.recyclerview.widget.RecyclerView
+import com.example.task3app.databinding.ItemPostBinding
+import com.example.task3app.model.Post
+
+class PostAdapter(private val posts: List<Post>) : RecyclerView.Adapter<PostAdapter.PostViewHolder>() {
+    inner class PostViewHolder(val binding: ItemPostBinding) : RecyclerView.ViewHolder(binding.root)
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PostViewHolder {
+        val binding = ItemPostBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return PostViewHolder(binding)
+    }
+    override fun onBindViewHolder(holder: PostViewHolder, position: Int) {
+        val post = posts[position]
+        holder.binding.textTitle.text = post.title
+        holder.binding.textBody.text = post.body
+    }
+    override fun getItemCount(): Int = posts.size
+}
+
+/* MainActivity.kt */
+package com.example.task3app
+import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.task3app.adapter.PostAdapter
+import com.example.task3app.api.RetrofitClient
+import com.example.task3app.databinding.ActivityMainBinding
+import com.example.task3app.model.Post
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+
+class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        fetchPosts()
+    }
+    private fun fetchPosts() {
+        RetrofitClient.instance.getPosts().enqueue(object : Callback<List<Post>> {
+            override fun onResponse(call: Call<List<Post>>, response: Response<List<Post>>) {
+                if (response.isSuccessful) {
+                    val posts = response.body() ?: emptyList()
+                    binding.recyclerView.adapter = PostAdapter(posts)
+                } else {
+                    Toast.makeText(this@MainActivity, "Failed to get data", Toast.LENGTH_SHORT).show()
+                }
+            }
+            override fun onFailure(call: Call<List<Post>>, t: Throwable) {
+                Toast.makeText(this@MainActivity, "Error: ${t.message}", Toast.LENGTH_LONG).show()
+                Log.e("MainActivity", "API call failed", t)
+            }
+        })
+    }
+}
